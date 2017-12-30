@@ -1,0 +1,21 @@
+{
+"name": "stereochrome/yii2-sendy-api",
+"description": "This component implements the sendy api",
+"type": "yii2-extension",
+"keywords": ["yii2","extension","sendy"],
+"license": "MIT",
+"authors": [
+{
+"name": "Jonas Heese",
+"email": "yii2@jonasheese.de"
+}
+],
+"require": {
+"yiisoft/yii2": "~2.0.0"
+},
+"autoload": {
+"psr-4": {
+"Stereochrome\\Sendy\\": ""
+}
+}
+}
