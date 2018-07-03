@@ -2,7 +2,10 @@
 
 namespace Stereochrome\Sendy;
 
-use \Stereochrome\Sendy\Model;
+use \Stereochrome\Sendy\Model\Campaign;
+use \Stereochrome\Sendy\Model\Subscriber;
+use \Stereochrome\Sendy\Model\Delete;
+use yii\httpclient\Client;
 
 class SendyApi extends \yii\base\Component {
 
@@ -20,7 +23,7 @@ class SendyApi extends \yii\base\Component {
 
 	public $query_string;
 
-	protected $lastAnswer;
+	public $_lastAnswer;
 
 	const ERROR = false;
 	const CAMPAIGN_PREVIEW_CREATED = 1;
@@ -29,6 +32,7 @@ class SendyApi extends \yii\base\Component {
 
 
 	protected $replies = [
+		// Campaign
 		'Campaign created' => true,
 		'Campaign created and now sending' => true,
 		'No data passed' => false,
@@ -45,6 +49,22 @@ class SendyApi extends \yii\base\Component {
 		'Brand ID not passed' => false,
 		'Unable to create campaign' => false,
 		'Unable to create and send campaign]' => false,
+
+		// Subscribe
+		'true' => true,
+		'Some fields are missing.' => false,
+		'Invalid email address.' => false,
+		'Invalid list ID.' => false,
+		'Already subscribed.' => false,
+
+		// Delete
+ 	  'No data passed' => false,
+		'API key not passed' => false,
+		'Invalid API key' => false,
+		'List ID not passed' => false,
+		'List does not exist' => false,
+		'Email address not passed' => false,
+		'Subscriber does not exist' => false,
 	];
 
 
@@ -61,6 +81,81 @@ class SendyApi extends \yii\base\Component {
 
 		if(!isset($this->brand_id)) {
 			throw new \Exception("Sendy brand_id not configured");
+		}
+
+	}
+
+	public function subscribe(Subscriber $subscriber) {
+		
+		if($subscriber->ready($this)) {
+
+			$params = [
+
+				'name' => $subscriber->name,
+				'email' => $subscriber->email,
+				'list' => $subscriber->list,
+				'country' => $subscriber->country,
+				'ipaddress' => $subscriber->ipaddress,
+				'referrer' => $subscriber->referrer,
+				'gdpr' => $subscriber->gdpr,
+				'hp' => $subscriber->hp,
+				'boolean' => 'true',
+			];
+
+			$client = new Client(['baseUrl' => $this->api_url]);
+			$this->_lastAnswer = null;
+
+			$response = $client->post(
+					'/subscribe', 
+					$params)
+				->setFormat(Client::FORMAT_URLENCODED)
+				->send();
+
+			$this->_lastAnswer = $response->content;
+
+			if(isset($this->replies[$this->_lastAnswer])) {
+				return $this->replies[$this->_lastAnswer];
+			}
+
+			if($this->_lastAnswer == 1) {
+				return true;
+			}
+
+			return self::ERROR;
+		}
+
+	}
+
+	public function remove(Delete $delete) {
+		
+		if($delete->ready($this)) {
+
+			$params = [
+				'api_key' => $this->api_key,
+				'email' => $delete->email,
+				'list_id' => $delete->list_id,
+			];
+
+			$client = new Client(['baseUrl' => $this->api_url]);
+			$this->_lastAnswer = null;
+
+			$response = $client->post(
+					'/api/subscribers/delete.php', 
+					$params)
+				->setFormat(Client::FORMAT_URLENCODED)
+				->send();
+
+			$this->_lastAnswer = $response->content;
+
+			if(isset($this->replies[$this->_lastAnswer])) {
+				return $this->replies[$this->_lastAnswer];
+			}
+
+			if($this->_lastAnswer == 1) {
+				return true;
+			}
+
+			return self::ERROR;
 		}
 
 	}
@@ -91,7 +186,7 @@ class SendyApi extends \yii\base\Component {
 			}
 
 			$client = new Client(['baseUrl' => $this->api_url]);
-			unset($this->lastAnswer);
+			unset($this->_lastAnswer);
 
 			$response = $client->post(
 					'/api/campaigns/create.php', 
@@ -99,14 +194,14 @@ class SendyApi extends \yii\base\Component {
 				->setFormat(Client::FORMAT_URLENCODED)
 				->send();
 
-			$this->lastAnswer = $api->getData();
+			$this->_lastAnswer = $response->getData();
 
-			if(isset($this->replies[$this->lastAnswer])) {
-				$result = $this->replies[$this->lastAnswer];
+			if(isset($this->replies[$this->_lastAnswer])) {
+				$result = $this->replies[$this->_lastAnswer];
 
 				if($result) {
 
-					switch($this->lastAnswer) {
+					switch($this->_lastAnswer) {
 						case 'Campaign created':
 							return self::CAMPAIGN_PREVIEW_CREATED;
 						break;
@@ -124,7 +219,7 @@ class SendyApi extends \yii\base\Component {
 	}
 
 	public function getLastAnswer() {
-		return $this->lastAnswer;
+		return $this->_lastAnswer;
 	}
 
 }
